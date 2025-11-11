@@ -79,6 +79,18 @@ void on_time(uxrSession *session, int64_t current_time, int64_t received_timesta
 	}
 }
 
+void on_time_no_sync(uxrSession *session, int64_t current_time, int64_t received_timestamp,
+		     int64_t transmit_timestamp, int64_t originate_timestamp, void *args)
+{
+	(void)current_time;
+	(void)received_timestamp;
+	(void)transmit_timestamp;
+	(void)originate_timestamp;
+	(void)args;
+
+	session->time_offset = 0;
+}
+
 UxrceddsClient::UxrceddsClient(Transport transport, const char *device, int baudrate, const char *agent_ip,
 			       const char *port, bool localhost_only, bool custom_participant, const char *client_namespace) :
 	ModuleParams(nullptr),
@@ -174,6 +186,8 @@ void UxrceddsClient::run()
 
 	while (!should_exit()) {
 		bool got_response = false;
+
+		_synchronize_timestamps = (_param_xrce_dds_synct.get() > 0);
 
 		while (!should_exit() && !got_response) {
 			// Sending ping without initing a XRCE session
@@ -298,22 +312,22 @@ void UxrceddsClient::run()
 
 		_connected = true;
 
-		// Set time-callback.
-		uxr_set_time_callback(&session, on_time, &_timesync);
+		// Set time-callback
+		if (_synchronize_timestamps) {
+			uxr_set_time_callback(&session, on_time, &_timesync);
+
+		} else {
+			uxr_set_time_callback(&session, on_time_no_sync, nullptr);
+		}
 
 		// Synchronize with the Agent
-		bool synchronized = false;
-
-		while (!synchronized) {
-			synchronized = uxr_sync_session(&session, 1000);
-
-			if (synchronized) {
+		while (_synchronize_timestamps) {
+			if (uxr_sync_session(&session, 1000)) {
 				PX4_INFO("synchronized with time offset %-5" PRId64 "us", session.time_offset / 1000);
-				//sleep(1);
-
-			} else {
-				usleep(10000);
+				break;
 			}
+
+			usleep(10000);
 		}
 
 		hrt_abstime last_sync_session = 0;
@@ -331,7 +345,7 @@ void UxrceddsClient::run()
 			uxr_run_session_timeout(&session, 0);
 
 			// time sync session
-			if (hrt_elapsed_time(&last_sync_session) > 1_s) {
+			if (_synchronize_timestamps && hrt_elapsed_time(&last_sync_session) > 1_s) {
 				if (uxr_sync_session(&session, 100)) {
 					//PX4_INFO("synchronized with time offset %-5" PRId64 "ns", session.time_offset);
 					last_sync_session = hrt_absolute_time();
