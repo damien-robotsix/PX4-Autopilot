@@ -101,10 +101,13 @@ private:
 	int _last_payload_rx_rate{}; ///< in B/s
 	bool _connected{false};
 
+	bool _synchronize_timestamps{true};
+
 	Timesync _timesync{timesync_status_s::SOURCE_PROTOCOL_DDS};
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::UXRCE_DDS_DOM_ID>) _param_xrce_dds_dom_id,
-		(ParamInt<px4::params::UXRCE_DDS_KEY>) _param_xrce_key
+		(ParamInt<px4::params::UXRCE_DDS_KEY>) _param_xrce_key,
+		(ParamInt<px4::params::UXRCE_DDS_SYNCT>) _param_xrce_dds_synct
 	)
 };
