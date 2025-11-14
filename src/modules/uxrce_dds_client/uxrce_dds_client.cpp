@@ -213,6 +213,8 @@ bool UxrceddsClient::setupSession(uxrSession *session) {
 
   bool got_response = false;
 
+  PX4_INFO("Initializing session...");
+
   while (!should_exit() && !got_response) {
     // Sending ping without initing a XRCE session
     got_response = uxr_ping_agent_attempts(_comm, 1000, 1);
@@ -338,6 +340,7 @@ bool UxrceddsClient::setupSession(uxrSession *session) {
   // Spin until in sync with the Agent or the session time sync has multiple
   // timeouts
   while (true) {
+    PX4_INFO("Synchronizing time with agent...");
     if (uxr_sync_session(session, 1000)) {
       if (_timesync.sync_converged()) {
         PX4_INFO("synchronized with time offset %-5" PRId64 "us",
